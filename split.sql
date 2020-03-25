@@ -16,7 +16,7 @@ WITH RECURSIVE split(word,prev,rest) AS (
     WHERE prev != '' OR rest != ''
 )
 SELECT
-    quote(word),quote(prev),quote(rest)
+    word
 FROM
     split
 WHERE
