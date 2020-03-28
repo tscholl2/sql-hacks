@@ -41,7 +41,7 @@ WITH RECURSIVE
                 substr(A,1+3*(idx-1),3)+1,
                 substr(A,1+3*(idx-l2-1),3)+(substr(w1,(idx/l2),1)!=substr(w2,(idx%l2),1))
             )END))
-        FROM levenshtein JOIN input JOIN lengths WHERE idx<l1*l2 ORDER BY 1 ASC
+        FROM levenshtein JOIN input JOIN lengths WHERE idx<=l1*l2
     )
-SELECT CAST (substr(A,-3,3) AS INTEGER) from levenshtein ORDER BY idx DESC LIMIT 1
+SELECT CAST (substr(A,-3,3) AS INTEGER) from levenshtein JOIN lengths WHERE idx=l1*l2
 ;

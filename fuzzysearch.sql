@@ -1,7 +1,7 @@
-.parameter set $needle 'wth nedle'
-.parameter set $haystack 'A haystack with needles in it'
+.parameter set $needle 'Lorm ipsum dolor'
+.parameter set $haystack 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.'
 --.header on
-.mode tabs
+--.mode columns
 WITH RECURSIVE
     raw_input(val,arg) AS (
         VALUES($needle,'needle')
@@ -52,33 +52,30 @@ WITH RECURSIVE
                             substr(A,1+3*(idx-1),3)+1,
                             substr(A,1+3*(idx-l2-1),3)+(substr(w1,(idx/l2),1)!=substr(w2,(idx%l2),1))
                         )END))
-                    FROM levenshtein JOIN input JOIN lengths WHERE idx<l1*l2 ORDER BY 1 ASC
+                    FROM levenshtein JOIN input JOIN lengths WHERE idx<=l1*l2
                 )
-            SELECT CAST (substr(A,-3,3) AS INTEGER) from levenshtein ORDER BY idx DESC LIMIT 1
+            SELECT CAST (substr(A,-3,3) AS INTEGER) from levenshtein JOIN lengths WHERE idx=l1*l2
         ) FROM hay_words CROSS JOIN needle_words WHERE hay_words.i>=needle_words.i
     ),
     needle_count(n) AS (SELECT count(*) FROM needle_words),
     hay_count(m) AS (SELECT count(*) FROM hay_words),
     phrase_distances(j,t) AS (
-        SELECT j,t FROM (SELECT
-            i,
+        SELECT
             j,
-            sum(d) OVER (
-                ORDER BY j ASC,i DESC
-                ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING -- TODO: replace 1 with n-1
-            ) AS t
-        FROM distances ORDER BY j ASC,i DESC)
-        JOIN needle_count JOIN hay_count WHERE i=1 AND j<=m-n+1
+            (SELECT sum(d) FROM distances WHERE j-i=D.j-D.i)
+        FROM distances AS D JOIN needle_count JOIN hay_count
+        WHERE i=1 AND j<=m-n+1
     ),
+    best_score(t) AS (SELECT min(t) FROM phrase_distances),
     top_matches(idx_start,idx_end) AS (
         SELECT
             idx,
             (SELECT idx+length(word)-1 FROM hay_words WHERE i=j+n-1)
-        FROM phrase_distances JOIN needle_count
+        FROM phrase_distances JOIN needle_count JOIN best_score
         JOIN hay_words ON phrase_distances.j=hay_words.i
-        WHERE t=(SELECT min(t) FROM phrase_distances)
+        WHERE phrase_distances.t=best_score.t
     ),
-    result(s) AS (
+    result(score,highlighted) AS (
         WITH RECURSIVE
             helper(i,s) AS (
                 VALUES(0,'')
@@ -91,8 +88,9 @@ WITH RECURSIVE
                     END
                 FROM helper JOIN raw_input WHERE arg='haystack' AND i<=length(val)
             )
-        SELECT s FROM helper ORDER BY i DESC LIMIT 1
+        SELECT t,s FROM helper JOIN best_score ORDER BY i DESC LIMIT 1
     )
-
+--SELECT * FROM top_matches
+--SELECT * FROM distances ORDER BY j ASC,i DESC
 SELECT * FROM result
 ;
